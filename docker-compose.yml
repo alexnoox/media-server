@@ -1,0 +1,24 @@
+version: '3.5'
+services:
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Australia/Brisbane
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - /user/alex/media-server/jellyfin-config:/config
+      - /user/alex/media/tv:/data/tvshows
+      - /user/alex/media/movies:/data/movies
+    ports:
+      - 8096:8096
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
