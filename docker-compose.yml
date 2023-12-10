@@ -83,13 +83,12 @@ services:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8096/jellyfin/health" ]
       interval: 5s
       retries: 10
+    runtime: nvidia
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+            - capabilities: [gpu]
     labels:
       - traefik.enable=true
       - traefik.http.routers.jellyfin.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/jellyfin`))
@@ -163,9 +162,13 @@ services:
       - ${DATA_ROOT}:/data
     restart: always
     healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8989/sonarr/ping" ]
+      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8989/sonarr/ping", "https://google.com" ]
       interval: 5s
       retries: 10
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
     labels:
       - traefik.enable=true
       - traefik.http.routers.sonarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/sonarr`))
@@ -179,7 +182,7 @@ services:
       - homepage.description=Series management
       - homepage.weight=0
       - homepage.widget.type=sonarr
-      - homepage.widget.url=http://sonarr:8989/sonarr
+      - homepage.widget.url=http://vpn:8989/sonarr
       - homepage.widget.key=${SONARR_API_KEY}
   radarr:
     image: lscr.io/linuxserver/radarr
@@ -193,9 +196,13 @@ services:
       - ${DATA_ROOT}:/data
     restart: always
     healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:7878/radarr/ping" ]
+      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:7878/radarr/ping", "https://google.com" ]
       interval: 5s
       retries: 10
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
     labels:
       - traefik.enable=true
       - traefik.http.routers.radarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/radarr`))
@@ -209,7 +216,7 @@ services:
       - homepage.description=Movies management
       - homepage.weight=1
       - homepage.widget.type=radarr
-      - homepage.widget.url=http://radarr:7878/radarr
+      - homepage.widget.url=http://vpn:7878/radarr
       - homepage.widget.key=${RADARR_API_KEY}
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -222,9 +229,13 @@ services:
       - ./prowlarr:/config
     restart: always
     healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:9696/prowlarr/ping" ]
+      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:9696/prowlarr/ping", "https://google.com" ]
       interval: 5s
       retries: 10
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
     labels:
       - traefik.enable=true
       - traefik.http.routers.prowlarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/prowlarr`))
@@ -238,7 +249,7 @@ services:
       - homepage.description=Indexers management
       - homepage.weight=4
       - homepage.widget.type=prowlarr
-      - homepage.widget.url=http://prowlarr:9696/prowlarr
+      - homepage.widget.url=http://vpn:9696/prowlarr
       - homepage.widget.key=${PROWLARR_API_KEY}
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
