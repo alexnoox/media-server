@@ -373,7 +373,7 @@ services:
       - homepage.description=Subtitles management
       - homepage.weight=2
       - homepage.widget.type=bazarr
-      - homepage.widget.url=http://vpn:6767/
+      - homepage.widget.url=http://vpn:6767
       - homepage.widget.key=${BAZARR_API_KEY}
   watchtower:
     image: containrrr/watchtower
