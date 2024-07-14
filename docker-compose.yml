@@ -152,6 +152,45 @@ services:
       - homepage.widget.url=http://jellyfin:8096
       - homepage.widget.key=${JELLYFIN_API_KEY}
 
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+      - VERSION=docker
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./plex:/config
+      - ${DATA_ROOT}/media/movies:/movies
+      - ${DATA_ROOT}/media/tv:/tv
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.plex.rule=Host(`plex.${HOSTNAME}`)
+      - traefik.http.routers.plex.tls=true
+      - traefik.http.routers.plex.tls.certresolver=myresolver
+      - traefik.http.services.plex.loadbalancer.server.port=32400
+      - homepage.group=Media
+      - homepage.name=Plex
+      - homepage.icon=plex.png
+      - homepage.href=https://plex.${HOSTNAME}
+      - homepage.description=Media server
+      - homepage.weight=1
+      - homepage.widget.type=plex
+      - homepage.widget.url=http://plex:32400
+      - homepage.widget.fields=["streams", "movies", "tv"]
+      - homepage.widget.key=${PLEX_API_KEY}
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
