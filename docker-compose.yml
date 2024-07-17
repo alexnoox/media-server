@@ -139,10 +139,9 @@ services:
       - homepage.description=Media server
       - homepage.weight=1
       - homepage.widget.type=plex
-      - homepage.widget.url=http://192.168.8.10:32400
+      - homepage.widget.url=http://plex:32400
       - homepage.widget.fields=["streams", "movies", "tv"]
       - homepage.widget.key=${PLEX_API_KEY}
-    network_mode: host
     runtime: nvidia
     deploy:
       resources:
