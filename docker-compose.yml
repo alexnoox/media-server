@@ -18,7 +18,7 @@ services:
       - LETS_ENCRYPT_EMAIL=${LETS_ENCRYPT_EMAIL}
     command:
       # - --log.level=DEBUG
-      - --log.filePath=/letsencrypt/traefik.log
+      # - --log.filePath=/letsencrypt/traefik.log
       - --api.insecure=true
       - --api.dashboard=true
       - --ping=true
@@ -55,11 +55,11 @@ services:
       - traefik.http.routers.traefik.tls=true
       - traefik.http.routers.traefik.tls.certresolver=myresolver
       - traefik.http.services.traefik.loadbalancer.server.port=8080
-      - homepage.group=Download
-      - homepage.name=traefik
+      - homepage.group=Network
+      - homepage.name=Traefik
       - homepage.icon=traefik.png
       - homepage.href=https://traefik.${HOSTNAME}
-      - homepage.description=Traefik
+      - homepage.description=Reverse Proxy and Ingress Controller
       - homepage.weight=1
       - homepage.widget.type=traefik
       - homepage.widget.url=http://traefik:8080
@@ -362,6 +362,32 @@ services:
       - homepage.widget.type=bazarr
       - homepage.widget.url=http://vpn:6767
       - homepage.widget.key=${BAZARR_API_KEY}
+
+  librespeed:
+    image: lscr.io/linuxserver/librespeed:latest
+    container_name: librespeed
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+      - PASSWORD=${LIBRESPEED_PWD}
+    volumes:
+      - ./librespeed/config:/config
+    ports:
+      - 8089:80
+    restart: always
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.librespeed.rule=Host(`librespeed.${HOSTNAME}`)
+      - traefik.http.routers.librespeed.tls=true
+      - traefik.http.routers.librespeed.tls.certresolver=myresolver
+      - traefik.http.services.librespeed.loadbalancer.server.port=80
+      - homepage.group=Network
+      - homepage.name=Librespeed
+      - homepage.icon=librespeed.png
+      - homepage.href=https://librespeed.${HOSTNAME}
+      - homepage.description=Network Speed Test
+      - homepage.weight=2
 
   watchtower:
     image: containrrr/watchtower
