@@ -12,8 +12,11 @@ headerStyle: {{HOMEPAGE_VAR_HEADER_STYLE}}
 layout:
   Media:
     style: row
-    columns: 3
+    columns: 2
   Download:
+    style: row
+    columns: 2
+  Network:
     style: row
     columns: 2
 

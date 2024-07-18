@@ -104,7 +104,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATA_ROOT}:/data
     restart: always
-    command: [sh, -c, "cp -n /app/config/tpl/*.yaml /app/config && node server.js"]
+    command: [sh, -c, "cp /app/config/tpl/*.yaml /app/config && node server.js"]
     labels:
       - traefik.enable=true
       - traefik.http.routers.homepage.rule=Host(`media.${HOSTNAME}`)
