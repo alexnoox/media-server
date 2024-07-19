@@ -151,6 +151,32 @@ services:
               count: all
               capabilities: [gpu]
 
+  tautulli:
+    image: lscr.io/linuxserver/tautulli:latest
+    container_name: tautulli
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - .tautulli:/config
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.tautulli.rule=Host(`tautulli.${HOSTNAME}`)
+      - traefik.http.routers.tautulli.tls=true
+      - traefik.http.routers.tautulli.tls.certresolver=myresolver
+      - traefik.http.services.tautulli.loadbalancer.server.port=8181
+      - homepage.group=Media
+      - homepage.name=Tautulli
+      - homepage.icon=tautulli.png
+      - homepage.href=https://tautulli.${HOSTNAME}
+      - homepage.description=Plex monitoring
+      - homepage.weight=2
+      - homepage.widget.type=tautulli
+      - homepage.widget.url=http://tautulli:8181
+      - homepage.widget.key=${TAUTULLI_API_KEY}
+
   overseerr:
     image: lscr.io/linuxserver/overseerr:latest
     container_name: overseerr
