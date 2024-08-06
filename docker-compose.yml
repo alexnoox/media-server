@@ -435,6 +435,56 @@ services:
       - homepage.description=Network Speed Test
       - homepage.weight=2
 
+  romm:
+    image: rommapp/romm:latest
+    container_name: romm
+    restart: unless-stopped
+    environment:
+      - TZ=${TIMEZONE}
+      - DB_HOST=romm-db
+      - DB_NAME=romm # Should match MYSQL_DATABASE in mariadb
+      - DB_USER=romm-user # Should match MYSQL_USER in mariadb
+      - DB_PASSWD=${ROMM_DB_PASSWD} # Should match MYSQL_PASSWORD in mariadb
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY} # Generate a key with `openssl rand -hex 32`
+      - ROMM_AUTH_USERNAME=${ROMM_AUTH_USERNAME}
+      - ROMM_AUTH_PASSWORD=${ROMM_AUTH_PASSWORD}
+      # - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
+      # - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
+      - MOBYGAMES_API_KEY=${MOBYGAMES_API_KEY} # https://www.mobygames.com/info/api/
+      - STEAMGRIDDB_API_KEY=${STEAMGRIDDB_API_KEY} # https://github.com/rommapp/romm/wiki/Generate-API-Keys#steamgriddb
+    volumes:
+      - ./romm/resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
+      - ./romm/redis:/redis-data # Cached data for background tasks
+      - ${DATA_ROOT}/emulation:/romm/library # Your game library (inc. bios/ and roms/ folders)
+      - ./romm/assets:/romm/assets # Uploaded saves, states, etc.
+      - ./romm/config:/romm/config # Path where config.yml is stored
+    depends_on:
+      - romm-db
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.romm.rule=Host(`romm.${HOSTNAME}`)
+      - traefik.http.routers.romm.tls=true
+      - traefik.http.routers.romm.tls.certresolver=myresolver
+      - traefik.http.services.romm.loadbalancer.server.port=8080
+      - homepage.group=Files
+      - homepage.name=Romm
+      - homepage.icon=romm.png
+      - homepage.href=https://romm.${HOSTNAME}
+      - homepage.description=Roms Library
+      - homepage.weight=2
+
+  romm-db:
+    image: mariadb:latest # if you experience issues, try: linuxserver/mariadb:latest
+    container_name: romm-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${ROMM_DB_ROOT_PASSWD} # Use a unique, secure password
+      - MYSQL_DATABASE=romm
+      - MYSQL_USER=romm-user
+      - MYSQL_PASSWORD=${ROMM_DB_PASSWD}
+    volumes:
+      - ./romm/db:/var/lib/mysql
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
