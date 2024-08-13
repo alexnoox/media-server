@@ -485,6 +485,39 @@ services:
     volumes:
       - ./romm/db:/var/lib/mysql
 
+  beszel:
+    image: henrygd/beszel
+    container_name: beszel
+    restart: always
+    volumes:
+      - ./beszel:/beszel_data
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.beszel.rule=Host(`beszel.${HOSTNAME}`)
+      - traefik.http.routers.beszel.tls=true
+      - traefik.http.routers.beszel.tls.certresolver=myresolver
+      - traefik.http.services.beszel.loadbalancer.server.port=8090
+      - homepage.group=System
+      - homepage.name=Beszel
+      - homepage.icon=beszel.png
+      - homepage.href=https://beszel.${HOSTNAME}
+      - homepage.description=Resource monitoring hub
+      - homepage.weight=5
+
+  beszel-agent:
+    image: 'henrygd/beszel-agent'
+    container_name: 'beszel-agent'
+    restart: always
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      PORT: 45876
+      FILESYSTEM: /dev/md0
+      KEY: ${BESZEL_KEY}
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
