@@ -159,7 +159,8 @@ services:
       - PGID=${GROUP_ID}
       - TZ=${TIMEZONE}
     volumes:
-      - .tautulli:/config
+      - ./tautulli:/config
+      - ./plex/Library/Application Support/Plex Media Server/Logs:/plexlogs
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -356,6 +357,16 @@ services:
       - homepage.widget.url=http://vpn:9696
       - homepage.widget.key=${PROWLARR_API_KEY}
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    network_mode: "service:vpn"
+    environment:
+      - LOG_LEVEL=debug  # Optional: Set the log level (info, debug, etc.)
+      - LOG_HTML=false  # Optional: Set to true to log HTML responses (for debugging)
+      - CAPTCHA_SOLVER=none  # Optional: Integrate with a CAPTCHA solving service
+
   bazarr:
     image: lscr.io/linuxserver/bazarr:latest
     container_name: bazarr
@@ -391,7 +402,10 @@ services:
 
   filebrowser:
     image: hurlenko/filebrowser
-    user: "${USER_ID}:${GROUP_ID}"
+    container_name: filebrowser
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
     volumes:
       - ${DATA_ROOT}:/data
       - ./filebrowser:/config
@@ -402,7 +416,7 @@ services:
       - traefik.http.routers.filebrowser.tls=true
       - traefik.http.routers.filebrowser.tls.certresolver=myresolver
       - traefik.http.services.filebrowser.loadbalancer.server.port=8080
-      - homepage.group=Network
+      - homepage.group=System
       - homepage.name=Filebrowser
       - homepage.icon=filebrowser.png
       - homepage.href=https://filebrowser.${HOSTNAME}
@@ -428,7 +442,7 @@ services:
       - traefik.http.routers.librespeed.tls=true
       - traefik.http.routers.librespeed.tls.certresolver=myresolver
       - traefik.http.services.librespeed.loadbalancer.server.port=80
-      - homepage.group=Network
+      - homepage.group=System
       - homepage.name=Librespeed
       - homepage.icon=librespeed.png
       - homepage.href=https://librespeed.${HOSTNAME}
@@ -466,57 +480,51 @@ services:
       - traefik.http.routers.romm.tls=true
       - traefik.http.routers.romm.tls.certresolver=myresolver
       - traefik.http.services.romm.loadbalancer.server.port=8080
-      - homepage.group=Files
+      - homepage.group=System
       - homepage.name=Romm
       - homepage.icon=romm.png
       - homepage.href=https://romm.${HOSTNAME}
       - homepage.description=Roms Library
       - homepage.weight=2
 
-  romm-db:
-    image: mariadb:latest # if you experience issues, try: linuxserver/mariadb:latest
-    container_name: romm-db
-    restart: unless-stopped
+  ntfy:
+    image: binwiederhier/ntfy
+    container_name: ntfy
+    command:
+      - serve
     environment:
-      - MYSQL_ROOT_PASSWORD=${ROMM_DB_ROOT_PASSWD} # Use a unique, secure password
-      - MYSQL_DATABASE=romm
-      - MYSQL_USER=romm-user
-      - MYSQL_PASSWORD=${ROMM_DB_PASSWD}
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+      - NTFY_BASE_URL=http://ntfy.example.com
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_AUTH_FILE=/var/lib/ntfy/auth.db
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
+      - NTFY_ENABLE_LOGIN=true
     volumes:
-      - ./romm/db:/var/lib/mysql
-
-  beszel:
-    image: henrygd/beszel
-    container_name: beszel
-    restart: always
-    volumes:
-      - ./beszel:/beszel_data
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      # - ./ntfy/etc:/etc/ntfy
+      - ./ntfy/lib:/var/lib/ntfy
+    healthcheck: # optional: remember to adapt the host:port to your environment
+        test: ["CMD-SHELL", "wget -q --tries=1 http://localhost:80/v1/health -O - | grep -Eo '\"healthy\"\\s*:\\s*true' || exit 1"]
+        interval: 60s
+        timeout: 10s
+        retries: 3
+        start_period: 40s
+    restart: unless-stopped
     labels:
       - traefik.enable=true
-      - traefik.http.routers.beszel.rule=Host(`beszel.${HOSTNAME}`)
-      - traefik.http.routers.beszel.tls=true
-      - traefik.http.routers.beszel.tls.certresolver=myresolver
-      - traefik.http.services.beszel.loadbalancer.server.port=8090
+      - traefik.http.routers.ntfy.rule=Host(`ntfy.${HOSTNAME}`)
+      - traefik.http.routers.ntfy.tls=true
+      - traefik.http.routers.ntfy.tls.certresolver=myresolver
+      - traefik.http.services.ntfy.loadbalancer.server.port=80
       - homepage.group=System
-      - homepage.name=Beszel
-      - homepage.icon=beszel.png
-      - homepage.href=https://beszel.${HOSTNAME}
-      - homepage.description=Resource monitoring hub
-      - homepage.weight=5
-
-  beszel-agent:
-    image: 'henrygd/beszel-agent'
-    container_name: 'beszel-agent'
-    restart: always
-    network_mode: host
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      PORT: 45876
-      FILESYSTEM: /dev/md0
-      KEY: ${BESZEL_KEY}
+      - homepage.name=ntfy
+      - homepage.icon=ntfy.png
+      - homepage.href=https://ntfy.${HOSTNAME}
+      - homepage.description=Push Notification Service
+      - homepage.weight=3
 
   watchtower:
     image: containrrr/watchtower
@@ -524,14 +532,15 @@ services:
     restart: always
     environment:
       - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * *
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  autoheal:
-    image: willfarrell/autoheal:latest
-    container_name: autoheal
-    restart: always
-    environment:
-      - AUTOHEAL_CONTAINER_LABEL=all
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+  # autoheal:
+  #   image: willfarrell/autoheal:latest
+  #   container_name: autoheal
+  #   restart: always
+  #   environment:
+  #     - AUTOHEAL_CONTAINER_LABEL=all
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
