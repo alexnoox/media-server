@@ -25,20 +25,20 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-      - --entrypoints.web-secure.address=:443
-      - --entrypoints.web.http.redirections.entryPoint.to=web-secure
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
       - --entrypoints.web.http.redirections.entryPoint.scheme=https
       - --entrypoints.web.http.redirections.entrypoint.permanent=true
       - --experimental.plugins.rewrite-body.modulename=github.com/packruler/rewrite-body
       - --experimental.plugins.rewrite-body.version=v1.2.0
       - --experimental.plugins.rewriteHeaders.modulename=github.com/XciD/traefik-plugin-rewrite-headers
       - --experimental.plugins.rewriteHeaders.version=v0.0.3
-      - --certificatesresolvers.myresolver.acme.dnschallenge=${DNS_CHALLENGE:-true}
-      - --certificatesresolvers.myresolver.acme.dnschallenge.provider=${DNS_CHALLENGE_PROVIDER:-cloudflare}
-      - --certificatesresolvers.myresolver.acme.dnschallenge.resolvers=1.1.1.1
-      - --certificatesresolvers.myresolver.acme.caserver=${LETS_ENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
-      - --certificatesresolvers.myresolver.acme.email=${LETS_ENCRYPT_EMAIL}
-      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=${DNS_CHALLENGE:-true}
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${DNS_CHALLENGE_PROVIDER:-cloudflare}
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.resolvers=1.1.1.1
+      - --certificatesresolvers.letsencrypt.acme.caserver=${LETS_ENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
+      - --certificatesresolvers.letsencrypt.acme.email=${LETS_ENCRYPT_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
     ports:
       - 80:80
       - 443:443
@@ -53,7 +53,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=Host(`traefik.${HOSTNAME}`)
       - traefik.http.routers.traefik.tls=true
-      - traefik.http.routers.traefik.tls.certresolver=myresolver
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
       - traefik.http.services.traefik.loadbalancer.server.port=8080
       - homepage.group=Network
       - homepage.name=Traefik
@@ -109,7 +109,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.homepage.rule=Host(`media.${HOSTNAME}`)
       - traefik.http.routers.homepage.tls=true
-      - traefik.http.routers.homepage.tls.certresolver=myresolver
+      - traefik.http.routers.homepage.tls.certresolver=letsencrypt
       - traefik.http.services.homepage.loadbalancer.server.port=3000
 
   plex:
@@ -130,7 +130,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.plex.rule=Host(`plex.${HOSTNAME}`)
       - traefik.http.routers.plex.tls=true
-      - traefik.http.routers.plex.tls.certresolver=myresolver
+      - traefik.http.routers.plex.tls.certresolver=letsencrypt
       - traefik.http.services.plex.loadbalancer.server.port=32400
       - homepage.group=Media
       - homepage.name=Plex
@@ -166,7 +166,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.tautulli.rule=Host(`tautulli.${HOSTNAME}`)
       - traefik.http.routers.tautulli.tls=true
-      - traefik.http.routers.tautulli.tls.certresolver=myresolver
+      - traefik.http.routers.tautulli.tls.certresolver=letsencrypt
       - traefik.http.services.tautulli.loadbalancer.server.port=8181
       - homepage.group=Media
       - homepage.name=Tautulli
@@ -196,7 +196,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.overseerr.rule=Host(`overseerr.${HOSTNAME}`)
       - traefik.http.routers.overseerr.tls=true
-      - traefik.http.routers.overseerr.tls.certresolver=myresolver
+      - traefik.http.routers.overseerr.tls.certresolver=letsencrypt
       - traefik.http.services.overseerr.loadbalancer.server.port=5055
       - homepage.group=Media
       - homepage.name=Overseerr
@@ -233,7 +233,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${HOSTNAME}`)
       - traefik.http.routers.qbittorrent.tls=true
-      - traefik.http.routers.qbittorrent.tls.certresolver=myresolver
+      - traefik.http.routers.qbittorrent.tls.certresolver=letsencrypt
       - traefik.http.services.qbittorrent.loadbalancer.server.port=8080
       - traefik.http.routers.qbittorrent.middlewares=qbittorrent-strip-slash,qbittorrent-stripprefix
       # https://github.com/qbittorrent/qBittorrent/issues/5693#issuecomment-552146296
@@ -276,7 +276,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.sonarr.rule=Host(`sonarr.${HOSTNAME}`)
       - traefik.http.routers.sonarr.tls=true
-      - traefik.http.routers.sonarr.tls.certresolver=myresolver
+      - traefik.http.routers.sonarr.tls.certresolver=letsencrypt
       - traefik.http.services.sonarr.loadbalancer.server.port=8989
       - homepage.group=Download
       - homepage.name=Sonarr
@@ -311,7 +311,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.radarr.rule=Host(`radarr.${HOSTNAME}`)
       - traefik.http.routers.radarr.tls=true
-      - traefik.http.routers.radarr.tls.certresolver=myresolver
+      - traefik.http.routers.radarr.tls.certresolver=letsencrypt
       - traefik.http.services.radarr.loadbalancer.server.port=7878
       - homepage.group=Download
       - homepage.name=Radarr
@@ -345,7 +345,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.prowlarr.rule=Host(`prowlarr.${HOSTNAME}`)
       - traefik.http.routers.prowlarr.tls=true
-      - traefik.http.routers.prowlarr.tls.certresolver=myresolver
+      - traefik.http.routers.prowlarr.tls.certresolver=letsencrypt
       - traefik.http.services.prowlarr.loadbalancer.server.port=9696
       - homepage.group=Download
       - homepage.name=Prowlarr
@@ -388,7 +388,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.bazarr.rule=Host(`bazarr.${HOSTNAME}`)
       - traefik.http.routers.bazarr.tls=true
-      - traefik.http.routers.bazarr.tls.certresolver=myresolver
+      - traefik.http.routers.bazarr.tls.certresolver=letsencrypt
       - traefik.http.services.bazarr.loadbalancer.server.port=6767
       - homepage.group=Download
       - homepage.name=Bazarr
@@ -414,7 +414,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.filebrowser.rule=Host(`filebrowser.${HOSTNAME}`)
       - traefik.http.routers.filebrowser.tls=true
-      - traefik.http.routers.filebrowser.tls.certresolver=myresolver
+      - traefik.http.routers.filebrowser.tls.certresolver=letsencrypt
       - traefik.http.services.filebrowser.loadbalancer.server.port=8080
       - homepage.group=System
       - homepage.name=Filebrowser
@@ -440,7 +440,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.librespeed.rule=Host(`librespeed.${HOSTNAME}`)
       - traefik.http.routers.librespeed.tls=true
-      - traefik.http.routers.librespeed.tls.certresolver=myresolver
+      - traefik.http.routers.librespeed.tls.certresolver=letsencrypt
       - traefik.http.services.librespeed.loadbalancer.server.port=80
       - homepage.group=System
       - homepage.name=Librespeed
@@ -517,7 +517,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.ntfy.rule=Host(`ntfy.${HOSTNAME}`)
       - traefik.http.routers.ntfy.tls=true
-      - traefik.http.routers.ntfy.tls.certresolver=myresolver
+      - traefik.http.routers.ntfy.tls.certresolver=letsencrypt
       - traefik.http.services.ntfy.loadbalancer.server.port=80
       - homepage.group=System
       - homepage.name=ntfy
