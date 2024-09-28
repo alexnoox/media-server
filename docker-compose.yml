@@ -400,6 +400,36 @@ services:
       - homepage.widget.url=http://vpn:6767
       - homepage.widget.key=${BAZARR_API_KEY}
 
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      - WEBSOCKET_ENABLED=true
+      - DOMAIN=https://vault.${HOSTNAME}
+      - SIGNUPS_ALLOWED=false
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_FROM=${VW_SMTP_USERNAME}
+      - SMTP_PORT=587
+      - SMTP_SECURITY=starttls
+      - SMTP_USERNAME=${VW_SMTP_USERNAME}
+      - SMTP_PASSWORD=${VW_SMTP_PASSWORD}
+      # - ADMIN_TOKEN=${VW_ADMIN_TOKEN}
+    volumes:
+      - ./vaultwarden:/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vaultwarden.rule=Host(`vault.${HOSTNAME}`)
+      - traefik.http.routers.vaultwarden.tls=true
+      - traefik.http.routers.vaultwarden.tls.certresolver=letsencrypt
+      - traefik.http.services.vaultwarden.loadbalancer.server.port=80
+      - homepage.group=System
+      - homepage.name=Vaultwarden
+      - homepage.icon=vaultwarden.png
+      - homepage.href=https://vault.${HOSTNAME}
+      - homepage.description=Password manager
+      - homepage.weight=3
+
   filebrowser:
     image: hurlenko/filebrowser
     container_name: filebrowser
