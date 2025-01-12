@@ -1,5 +1,3 @@
-version: '3.9'
-
 networks:
   default:
     name: media-server-network
@@ -517,6 +515,32 @@ services:
       - homepage.href=https://ntfy.${HOSTNAME}
       - homepage.description=Push Notification Service
       - homepage.weight=3
+
+  duplicati:
+    image: lscr.io/linuxserver/duplicati:latest
+    container_name: duplicati
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+      - DUPLICATI__WEBSERVICE_PASSWORD=${DUPLICATI_WEBSERVICE_PASSWORD}
+    volumes:
+      - ./duplicati/config:/config
+      - ./duplicati/backups:/backups
+      - ./:/source
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.duplicati.rule=Host(`duplicati.${HOSTNAME}`)
+      - traefik.http.routers.duplicati.tls=true
+      - traefik.http.routers.duplicati.tls.certresolver=letsencrypt
+      - traefik.http.services.duplicati.loadbalancer.server.port=8200
+      - homepage.group=System
+      - homepage.name=Duplicati
+      - homepage.icon=duplicati.png
+      - homepage.href=https://duplicati.${HOSTNAME}
+      - homepage.description=Backup System
+      - homepage.weight=4
 
   watchtower:
     image: containrrr/watchtower
