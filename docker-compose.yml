@@ -4,7 +4,7 @@ networks:
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.3
     container_name: traefik
     restart: always
     environment:
@@ -15,7 +15,7 @@ services:
       - CLOUDFLARE_PROPAGATION_TIMEOUT=${CLOUDFLARE_PROPAGATION_TIMEOUT}
       - LETS_ENCRYPT_EMAIL=${LETS_ENCRYPT_EMAIL}
     command:
-      # - --log.level=DEBUG
+      - --log.level=INFO
       # - --log.filePath=/letsencrypt/traefik.log
       - --api.insecure=true
       - --api.dashboard=true
@@ -43,6 +43,8 @@ services:
     volumes:
       - ./letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: [ "CMD", "traefik", "healthcheck", "--ping" ]
       interval: 5s
@@ -69,6 +71,7 @@ services:
       - ./wireguard:/config
     cap_add:
       - NET_ADMIN
+      - SYS_MODULE
     environment:
       - PUID=${USER_ID}
       - PGID=${GROUP_ID}
@@ -89,6 +92,7 @@ services:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     environment:
+      - HOMEPAGE_ALLOWED_HOSTS=media.${HOSTNAME}
       - HOMEPAGE_VAR_TITLE=${HOMEPAGE_VAR_TITLE}
       - HOMEPAGE_VAR_SEARCH_PROVIDER=${HOMEPAGE_VAR_SEARCH_PROVIDER}
       - HOMEPAGE_VAR_HEADER_STYLE=${HOMEPAGE_VAR_HEADER_STYLE}
@@ -101,8 +105,13 @@ services:
       - ./homepage:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DATA_ROOT}:/data
-    restart: always
+    restart: unless-stopped
     command: [sh, -c, "cp /app/config/tpl/*.yaml /app/config && node server.js"]
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
     labels:
       - traefik.enable=true
       - traefik.http.routers.homepage.rule=Host(`media.${HOSTNAME}`)
@@ -123,7 +132,11 @@ services:
       - ./plex:/config
       - ${DATA_ROOT}/media/movies:/movies
       - ${DATA_ROOT}/media/tv:/tv
-    restart: always
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 32400:32400
     labels:
       - traefik.enable=true
       - traefik.http.routers.plex.rule=Host(`plex.${HOSTNAME}`)
@@ -185,7 +198,7 @@ services:
       - TZ=${TIMEZONE}
     volumes:
       - ./overseerr:/config
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "http://127.0.0.1:5055/api/v1/status", "-qO", "/dev/null"]
       interval: 5s
@@ -218,7 +231,7 @@ services:
     volumes:
       - ./qbittorrent:/config
       - ${DOWNLOAD_ROOT}:/data/torrents
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8080", "https://google.com" ]
       interval: 5s
@@ -261,7 +274,7 @@ services:
     volumes:
       - ./sonarr:/config
       - ${DATA_ROOT}:/data
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8989/ping", "https://google.com" ]
       interval: 5s
@@ -296,7 +309,7 @@ services:
     volumes:
       - ./radarr:/config
       - ${DATA_ROOT}:/data
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:7878/ping", "https://google.com" ]
       interval: 5s
@@ -330,7 +343,7 @@ services:
       - TZ=${TIMEZONE}
     volumes:
       - ./prowlarr:/config
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:9696/ping", "https://google.com" ]
       interval: 5s
@@ -355,14 +368,30 @@ services:
       - homepage.widget.url=http://vpn:9696
       - homepage.widget.key=${PROWLARR_API_KEY}
 
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    volumes:
+      - ./recyclarr/config:/config
+      - ./recyclarr/logs:/logs
+    environment:
+      - TZ=Australia/Brisbane
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
+    restart: unless-stopped
+
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     restart: unless-stopped
-    network_mode: "service:vpn"
+    # network_mode: "service:vpn"
     environment:
+      - TZ=${TIMEZONE}
       - LOG_LEVEL=debug  # Optional: Set the log level (info, debug, etc.)
-      - LOG_HTML=false  # Optional: Set to true to log HTML responses (for debugging)
+      - LOG_HTML=true  # Optional: Set to true to log HTML responses (for debugging)
+      - BROWSER_TIMEOUT=120000
       - CAPTCHA_SOLVER=none  # Optional: Integrate with a CAPTCHA solving service
 
   bazarr:
@@ -376,7 +405,7 @@ services:
       - ./bazarr:/config
       - ${DATA_ROOT}/media/movies:/movies
       - ${DATA_ROOT}/media/tv:/tv
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://127.0.0.1:6767/ping", "https://google.com" ]
       interval: 5s
@@ -401,7 +430,7 @@ services:
   vaultwarden:
     image: vaultwarden/server:latest
     container_name: vaultwarden
-    restart: unless-stopped
+    restart: always
     environment:
       - WEBSOCKET_ENABLED=true
       - DOMAIN=https://vault.${HOSTNAME}
@@ -415,6 +444,11 @@ services:
       # - ADMIN_TOKEN=${VW_ADMIN_TOKEN}
     volumes:
       - ./vaultwarden:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/alive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       - traefik.enable=true
       - traefik.http.routers.vaultwarden.rule=Host(`vault.${HOSTNAME}`)
@@ -426,7 +460,165 @@ services:
       - homepage.icon=vaultwarden.png
       - homepage.href=https://vault.${HOSTNAME}
       - homepage.description=Password manager
-      - homepage.weight=3
+      - homepage.weight=1
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    environment:
+      - N8N_HOST=n8n.${HOSTNAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_AUTH_PASSWORD}
+      - WEBHOOK_URL=https://n8n.${HOSTNAME}
+      - TZ=${TIMEZONE}
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+    volumes:
+      - ./n8n:/home/node/.n8n
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/healthz"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.n8n.rule=Host(`n8n.${HOSTNAME}`)
+      - traefik.http.routers.n8n.tls=true
+      - traefik.http.routers.n8n.tls.certresolver=letsencrypt
+      - traefik.http.services.n8n.loadbalancer.server.port=5678
+      - homepage.group=System
+      - homepage.name=n8n
+      - homepage.icon=n8n.png
+      - homepage.href=https://n8n.${HOSTNAME}
+      - homepage.description=Workflow Automation
+      - homepage.weight=5
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dozzle.rule=Host(`dozzle.${HOSTNAME}`)
+      - traefik.http.routers.dozzle.tls=true
+      - traefik.http.routers.dozzle.tls.certresolver=letsencrypt
+      - traefik.http.services.dozzle.loadbalancer.server.port=8080
+      - homepage.group=System
+      - homepage.name=Dozzle
+      - homepage.icon=dozzle.png
+      - homepage.href=https://dozzle.${HOSTNAME}
+      - homepage.description=Docker logs viewer
+      - homepage.weight=1
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    volumes:
+      - ./uptime-kuma:/app/data
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # healthcheck:
+    #   test: wget --no-verbose --tries=1 --spider http://localhost:3001 || exit 1
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.uptime-kuma.rule=Host(`kuma.${HOSTNAME}`)
+      - traefik.http.routers.uptime-kuma.tls=true
+      - traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt
+      - traefik.http.services.uptime-kuma.loadbalancer.server.port=3001
+      - homepage.group=System
+      - homepage.name=Uptime Kuma
+      - homepage.icon=uptime-kuma.png
+      - homepage.href=https://kuma.${HOSTNAME}
+      - homepage.description=Uptime Monitoring
+      - homepage.weight=1
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./ollama:/root/.ollama
+    ports:
+      - 11434:11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # healthcheck:
+    #   test: wget --no-verbose --tries=1 --spider http://localhost:11434 || exit 1
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ollama.rule=Host(`ollama.${HOSTNAME}`)
+      - traefik.http.routers.ollama.tls=true
+      - traefik.http.routers.ollama.tls.certresolver=letsencrypt
+      - traefik.http.services.ollama.loadbalancer.server.port=11434
+      - homepage.group=AI
+      - homepage.name=Ollama
+      - homepage.icon=ollama.png
+      - homepage.href=https://ollama.${HOSTNAME}
+      - homepage.description=Local AI Models
+      - homepage.weight=6
+
+  ollama-webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: ollama-webui
+    restart: unless-stopped
+    environment:
+      - OLLAMA_API_BASE_URL=http://ollama:11434
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./ollama-webui:/app/backend/data
+    depends_on:
+      - ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ollama-webui.rule=Host(`ai.${HOSTNAME}`)
+      - traefik.http.routers.ollama-webui.tls=true
+      - traefik.http.routers.ollama-webui.tls.certresolver=letsencrypt
+      - traefik.http.services.ollama-webui.loadbalancer.server.port=8080
+      - homepage.group=AI
+      - homepage.name=Ollama WebUI
+      - homepage.icon=ollama.png
+      - homepage.href=https://ai.${HOSTNAME}
+      - homepage.description=Ollama Web Interface
+      - homepage.weight=2
 
   filebrowser:
     image: hurlenko/filebrowser
@@ -437,7 +629,7 @@ services:
     volumes:
       - ${DATA_ROOT}:/data
       - ./filebrowser:/config
-    restart: always
+    restart: unless-stopped
     labels:
       - traefik.enable=true
       - traefik.http.routers.filebrowser.rule=Host(`filebrowser.${HOSTNAME}`)
@@ -463,7 +655,7 @@ services:
       - ./librespeed/config:/config
     ports:
       - 8089:80
-    restart: always
+    restart: unless-stopped
     labels:
       - traefik.enable=true
       - traefik.http.routers.librespeed.rule=Host(`librespeed.${HOSTNAME}`)
@@ -528,7 +720,7 @@ services:
       - ./duplicati/config:/config
       - ./duplicati/backups:/backups
       - ./:/source
-    restart: unless-stopped
+    restart: always
     labels:
       - traefik.enable=true
       - traefik.http.routers.duplicati.rule=Host(`duplicati.${HOSTNAME}`)
@@ -551,12 +743,3 @@ services:
       - WATCHTOWER_SCHEDULE=0 0 4 * * *
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
-  # autoheal:
-  #   image: willfarrell/autoheal:latest
-  #   container_name: autoheal
-  #   restart: always
-  #   environment:
-  #     - AUTOHEAL_CONTAINER_LABEL=all
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
